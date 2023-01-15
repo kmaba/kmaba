@@ -4,7 +4,7 @@
   <img src="https://profile-counter.glitch.me/dolosarafat/count.svg" />
 </p>
 
-<h1 align="center">Hi 👋, I'm Abdullah Arafat</h1>
+<h1 align="center">Hi 😁🔫, I'm Abdullah Arafat</h1>
 <h3 align="center">I don't really have a main coding language i'm kinda all over the place.</h3>
 
 

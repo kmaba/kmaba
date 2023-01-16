@@ -3,8 +3,7 @@
   Visitor count<br>
   <img src="https://profile-counter.glitch.me/dolosarafat/count.svg" />
 </p>
-
-<h1 align="center">Hi 😁🔫, I'm Abdullah Arafat</h1>
+<h1 align="center">Hi 😁🔫, I'm <a href="https://dolosarafat.github.io">Abdullah Arafat</a></h1>
 <h3 align="center">I don't really have a main coding language i'm kinda all over the place.</h3>
 
 ![snake animation](https://github.com/dolosarafat/dolosarafat/blob/output/snake.svg)

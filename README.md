@@ -8,7 +8,7 @@
 <h1 align="center">Hi 😁🔫, I'm <a href="https://dolosarafat.github.io">Abdullah Arafat</a></h1>
 <h3 align="center">I don't really have a main coding language i'm kinda all over the place.</h3>
 
-![github contribution grid snake animation](https://raw.githubusercontent.com/dolosarafat/dolosarafat/output/github-contribution-grid-snake-dark.svg#gh-dark-mode-only)![github contribution grid snake animation](https://raw.githubusercontent.com/dolosarafat/dolosarafat/output/github-contribution-grid-snake.svg#gh-light-mode-only)
+<!-- ![github contribution grid snake animation](https://raw.githubusercontent.com/dolosarafat/dolosarafat/output/github-contribution-grid-snake-dark.svg#gh-dark-mode-only)![github contribution grid snake animation](https://raw.githubusercontent.com/dolosarafat/dolosarafat/output/github-contribution-grid-snake.svg#gh-light-mode-only) -->
 
 <p align="center">
 <img src="https://www.bing.com/th?id=OSB.5SuJNqkJ0qtt8C8mml%7Cv5w--.png&pid=MSports&w=48&h=48&qlt=90&c=1&rs=1&dpr=2&p=0">

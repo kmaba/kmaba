@@ -156,5 +156,5 @@
   <details>
   ```
 </details>
-Give a salt grain of credit by mentioning my username <b>@DolosArafat</b> in your project
+Hope that helps :D
 </details>

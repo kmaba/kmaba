@@ -5,7 +5,7 @@
 <p align="center"> 
 <img src="https://github.com/kmaba/kmaba/blob/main/Hero.gif?raw=true"/>
 </p>
-<h1 align="center">Hi 😁🔫, I'm <a href="https://dolosarafat.github.io">Abdullah Arafat</a></h1>
+<h1 align="center">Hi 😁🔫, I'm <a href="https://kmaba.github.io">Abdullah Arafat</a></h1>
 <h3 align="center" style="text-decoration: none">I don't really have a main coding language i'm kinda all over the place.</h3>
 
 <p align="center">

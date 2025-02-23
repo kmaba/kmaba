@@ -3,7 +3,7 @@
   <img src="https://profile-counter.glitch.me/dolosarafat/count.svg"/>
 </p>
 <p align="center"> 
-<!-- <img src="https://github.com/kmaba/kmaba/blob/main/Hero.gif?raw=true"/> -->
+<img src="https://github.com/kmaba/kmaba/blob/main/banner.png?raw=true"/>
 </p>
 <h1 align="center">I'm <a href="https://kmaba.link">Abdullah Arafat</a></h1>
 <h3 align="center" style="text-decoration: none">fullstack dev</h3>

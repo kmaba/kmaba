@@ -1,19 +1,10 @@
-<p align="center"> 
-  <br>Visitor count<br>
-  <img src="https://profile-counter.glitch.me/dolosarafat/count.svg"/>
-</p>
+<p align="center"> <img src="https://profile-counter.glitch.me/dolosarafat/count.svg"/> </p>
 <p align="center"> 
 <img src="https://github.com/kmaba/kmaba/blob/main/banner.png?raw=true"/>
 </p>
-<h1 align="center">I'm <a href="https://kmaba.link">Abdullah Arafat</a></h1>
-<h3 align="center" style="text-decoration: none">fullstack dev</h3>
-
-<p align="center">
-<img src="https://www.bing.com/th?id=OSB.5SuJNqkJ0qtt8C8mml%7Cv5w--.png&pid=MSports&w=48&h=48&qlt=90&c=1&rs=1&dpr=2&p=0">
-</p>
 
 <details align="center">
-  <summary><h1>Markdown Cheatsheet</h1></summary>
+  <summary><h1></h1></summary>
 
 <details>
   <summary>Headings</summary>

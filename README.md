@@ -1,6 +1,10 @@
 <p align="center"> <img src="https://profile-counter.glitch.me/dolosarafat/count.svg"/> </p>
 <p align="center"> 
-<img src="https://github.com/kmaba/kmaba/blob/main/banner.png?raw=true"/>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/kmaba/kmaba/blob/main/banner.png?raw=true">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/kmaba/kmaba/blob/main/banner2.png?raw=true">
+  <img src="https://github.com/kmaba/kmaba/blob/main/banner.png?raw=true" alt="Banner Image">
+</picture>
 </p>
 
 <details align="center">

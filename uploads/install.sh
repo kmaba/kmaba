@@ -12,7 +12,7 @@
 set -euo pipefail
 
 # --- Configuration ---
-HYDE_REPO="https://github.com/prasanthrangan/hyprdots"
+HYDE_REPO="https://github.com/HyDE-Project/HyDE"
 HYDE_DIR="/home/${SUDO_USER:-$(whoami)}/HyDE"
 WALLPAPER_URL="https://files.catbox.moe/toernq.png"
 BANNER_URL="https://raw.githubusercontent.com/kmaba/kmaba/main/uploads/banner.png"

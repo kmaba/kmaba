@@ -4,7 +4,7 @@
 # AUTOMATED CACHYOS + HYDE + ASUS G14 + NVIDIA BETA SETUP
 # -----------------------------------------------------------------------------
 # RUN TWICE:
-# 1. Installs HyDE + Apps (Reboot).
+# 1. Installs HyDE (Reboot).
 # 2. Configures Nvidia, Fastfetch, GRUB, etc. (Reboot).
 # -----------------------------------------------------------------------------
 
@@ -107,18 +107,16 @@ run_phase_1() {
         su - "$TARGET_USER" -c "git clone --depth 1 '$HYDE_REPO' '$HYDE_DIR'"
     fi
 
-    # 1. MODIFY CORE LIST (Remove 'code')
+    log "Configuring Core Packages (Disabling Code OSS)..."
     CORE_LIST="$HYDE_DIR/Scripts/pkg_core.lst"
+    # Comment out 'code' if it exists and isn't already commented
     if [ -f "$CORE_LIST" ]; then
-        log "Modifying pkg_core.lst to disable default Code-OSS..."
-        # Finds the line "code" and turns it into "#code"
-        sed -i 's/^code/#code/' "$CORE_LIST"
-    else
-        warn "pkg_core.lst not found, skipping patch."
+        sed -i 's/^code/# code/g' "$CORE_LIST"
+        log "Disabled 'code' in pkg_core.lst"
     fi
 
-    # 2. GENERATE USER LIST (Combined Mega List)
     log "Generating pkg_user.lst..."
+    # Combined list: Previous Essentials + Your New Additions
     cat > "$HYDE_DIR/Scripts/pkg_user.lst" <<EOF
 # --- System ---
 downgrade
@@ -130,18 +128,19 @@ python-requests
 ddcui
 hyprgui-bin
 power-profiles-daemon
+asusctl
+rog-control-center
+polkit
+polkit-gnome
 
-# --- Shell ---
+# --- Shell / Terminal ---
+oh-my-zsh-git
+pokemon-colorscripts-git
 bat
 eza
 duf
-
-# --- Misc ---
-xdg-desktop-portal-gtk
-wf-recorder
-emote
-wl-screenrec
-zbar
+tty-clock
+cmatrix
 
 # --- Gaming ---
 steam
@@ -152,45 +151,39 @@ lutris
 prismlauncher
 protonup-qt
 
-# --- Music ---
+# --- Music/Media ---
 cava
 spotify
 spicetify-cli
+wf-recorder
 
-# --- Apps/Editors ---
-neovim
-vscodium
-vscodium-marketplace
-code-marketplace
+# --- Apps ---
 visual-studio-code-bin
 microsoft-edge-stable-bin
+discord
+proton-vpn-gtk-app
+emote
 
-# --- Backend/Lockscreen/OSD ---
-electron
+# --- Misc / Desktop ---
+xdg-desktop-portal-gtk
 swaylock-effects-git
 swayosd-git
-
-# --- Extras (From previous requests) ---
-asusctl
-rog-control-center
-discord
-pavucontrol
+wdisplays
 blueman
 nm-connection-editor
-wdisplays
+pavucontrol
+ntfs-3g
+
+# --- Dev / Core ---
+git
+base-devel
+neovim
+python
+python-pip
+nodejs
+npm
 docker
 docker-compose
-proton-vpn-gtk-app
-ntfs-3g
-tty-clock
-cmatrix
-github-cli
-
-# --- ZSH/Fish Plugins (Uncommented all) ---
-oh-my-zsh-git
-pokemon-colorscripts-git
-pokego-bin
-zsh-theme-powerlevel10k-git
 EOF
     chown "$TARGET_USER:$TARGET_USER" "$HYDE_DIR/Scripts/pkg_user.lst"
 
@@ -243,15 +236,13 @@ ensure_g14_repo() {
 install_nvidia_beta_stack() {
   log "Installing NVIDIA Beta Drivers..."
   install_yay_if_missing
-  # Clean old drivers just in case
   pacman -Rns --noconfirm nvidia-dkms nvidia-utils lib32-nvidia-utils opencl-nvidia nvidia-settings 2>/dev/null || true
-  # Install Beta
   su - "$TARGET_USER" -c "yay -S --needed --noconfirm nvidia-beta-dkms nvidia-utils-beta opencl-nvidia-beta lib32-nvidia-utils-beta nvidia-settings-beta"
 }
 
 setup_docker() {
     log "Configuring Docker..."
-    # Docker installed in Phase 1, just fixing permissions
+    # Packages installed in Phase 1, just configuring permissions here
     if ! getent group docker >/dev/null; then groupadd docker; fi
     usermod -aG docker "$TARGET_USER"
     systemctl enable --now docker.service
@@ -267,12 +258,11 @@ fix_fastfetch() {
   
   su - "$TARGET_USER" -c "curl -fsSL '$BANNER_URL' -o '$FF_DIR/banner.png'"
   
-  # Generate if missing
   if [ ! -f "$FF_CONF" ]; then
     su - "$TARGET_USER" -c "fastfetch --gen-config"
   fi
   
-  # Apply Image Patch
+  # Replace Source and Type only
   sed -i 's|\"source\":.*|\"source\": \"'"$FF_DIR/banner.png"'\",|' "$FF_CONF"
   sed -i 's|\"type\":.*|\"type\": \"image\",|' "$FF_CONF"
   
@@ -325,6 +315,7 @@ GRUB_DISABLE_OS_PROBER=false
 GRUB_EARLY_INITRD_LINUX_STOCK=""
 GRUB_TOP_LEVEL="/boot/vmlinuz-linux-cachyos"
 EOF
+  # Skipping mkconfig as requested
 }
 
 create_optimization_scripts() {
@@ -414,7 +405,7 @@ update_hyprland_conf() {
     sed -i '/mode-normal.sh/d' "$CONF"
     sed -i '/steam --silent/d' "$CONF"
 
-    # Fix broken Hyprland config lines (gestures/anim)
+    # Fix broken Hyprland config lines (gestures/anim) that might exist from HyDE
     sed -i 's/^gestures/#gestures/g' "$CONF"
     sed -i 's/^workspace_swipe/#workspace_swipe/g' "$CONF"
 
@@ -434,16 +425,13 @@ run_phase_2() {
     ensure_kernel_headers
     pacman -Syu --noconfirm
     ensure_g14_repo
-    pacman_install asusctl rog-control-center power-profiles-daemon
-    systemctl enable --now power-profiles-daemon.service || true
-    pacman_install nvidia-laptop-power-cfg || true
     install_nvidia_beta_stack
     
     for svc in nvidia-suspend nvidia-hibernate nvidia-resume nvidia-powerd; do
         systemctl enable "$svc" 2>/dev/null || true
     done
 
-    # Apps are now installed in Phase 1, but we still config Docker here
+    # Apps are now installed in Phase 1 via pkg_user.lst
     setup_docker
     
     fix_fastfetch

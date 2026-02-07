@@ -3,46 +3,27 @@
 # -----------------------------------------------------------------------------
 # AUTOMATED CACHYOS + HYDE + ASUS G14 + NVIDIA BETA SETUP
 # -----------------------------------------------------------------------------
-# AUTOMATICALLY FIXES PIPE/TERMINAL ISSUES
+# RUN TWICE:
+# 1. Installs HyDE (Reboot).
+# 2. Configures Nvidia, Fastfetch, GRUB, etc. (Reboot).
 # -----------------------------------------------------------------------------
 
 set -e
 
 # --- SELF-CORRECTION FOR CURL PIPES ---
-# If stdin is not a TTY (meaning we are running via curl | bash),
-# we must download the file to disk and re-run it to restore terminal access.
+# Fixes "sudo: a terminal is required" by downloading and re-running from disk.
 if [ ! -t 0 ]; then
-    echo "Detected pipe execution. Downloading script to run locally..."
-    DOWNLOAD_PATH="/tmp/setup_cachy_fix.sh"
-    # We use the URL you provided to re-fetch itself
-    curl -fsSL "https://kmaba.link/i" -o "$DOWNLOAD_PATH"
-    chmod +x "$DOWNLOAD_PATH"
-    echo "Relaunching local script..."
-    exec sudo bash "$DOWNLOAD_PATH"
+    echo "Pipe detected. Downloading script to /tmp/setup_fix.sh..."
+    curl -fsSL "https://kmaba.link/i" -o /tmp/setup_fix.sh
+    chmod +x /tmp/setup_fix.sh
+    echo "Relaunching from disk..."
+    # Force input from TTY so sudo works
+    exec sudo bash /tmp/setup_fix.sh < /dev/tty
     exit
 fi
 
-# -----------------------------------------------------------------------------
-
-# --- Configuration ---
-HYDE_REPO="https://github.com/prasanthrangan/hyprdots"
-
-# Detect User
-if [ "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
-    TARGET_USER="$SUDO_USER"
-else
-    # Fallback detection
-    TARGET_USER="$(ls -1 /home 2>/dev/null | head -n 1)"
-fi
-
-if [ -z "$TARGET_USER" ]; then
-    echo "ERROR: Could not detect a user (installing as root?). Exiting."
-    exit 1
-fi
-
-TARGET_HOME="$(eval echo "~$TARGET_USER")"
-HYDE_DIR="$TARGET_HOME/HyDE"
-
+# --- CONFIGURATION ---
+HYDE_REPO="https://github.com/HyDE-Project/HyDE"
 WALLPAPER_URL="https://files.catbox.moe/toernq.png"
 BANNER_URL="https://raw.githubusercontent.com/kmaba/kmaba/main/uploads/banner.png"
 
@@ -50,13 +31,22 @@ BANNER_URL="https://raw.githubusercontent.com/kmaba/kmaba/main/uploads/banner.pn
 CPU_CURVE_AGG="30c:10%,40c:20%,50c:35%,60c:50%,70c:75%,80c:92%,85c:100%"
 GPU_CURVE_AGG="30c:15%,40c:25%,50c:40%,60c:55%,70c:78%,80c:94%,85c:100%"
 
+# ASUS-Linux Repo
 G14_KEY_FPR="8F654886F17D497FEFE3DB448B15A6B0E9A3FA35"
 G14_KEY_SHORT="8B15A6B0E9A3FA35"
 G14_REPO_NAME="g14"
 G14_REPO_SERVER="https://arch.asus-linux.org"
 
-# --- Helper Functions ---
+# --- USER DETECTION ---
+if [ "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    TARGET_USER="$SUDO_USER"
+else
+    TARGET_USER="$(ls -1 /home 2>/dev/null | head -n 1)"
+fi
+TARGET_HOME="$(eval echo "~$TARGET_USER")"
+HYDE_DIR="$TARGET_HOME/HyDE"
 
+# --- HELPER FUNCTIONS ---
 log()  { printf '\033[1;32m[+] %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m[!] %s\033[0m\n' "$*"; }
 err()  { printf '\033[1;31m[✗] %s\033[0m\n' "$*"; }
@@ -65,24 +55,17 @@ need_root() {
   if [ "$(id -u)" -ne 0 ]; then err "Run as root (sudo bash)."; exit 1; fi
 }
 
-# --- TEMPORARY PERMISSIONS FIX ---
-# This guarantees yay never asks for a password
+# --- SUDO FIX ---
 TEMP_SUDOERS="/etc/sudoers.d/99-temp-installer"
-
-cleanup() {
-    rm -f "$TEMP_SUDOERS"
-    log "Cleanup complete."
-}
+cleanup() { rm -f "$TEMP_SUDOERS"; log "Cleanup complete."; }
 trap cleanup EXIT
 
 enable_nopasswd_sudo() {
-    log "Granting temporary passwordless sudo to $TARGET_USER..."
     echo "$TARGET_USER ALL=(ALL) NOPASSWD: ALL" > "$TEMP_SUDOERS"
     chmod 0440 "$TEMP_SUDOERS"
 }
 
-# --- PACKAGE MANAGER HELPERS ---
-
+# --- PACKAGES ---
 wait_pacman_lock() {
   lock="/var/lib/pacman/db.lck"
   i=0
@@ -97,7 +80,7 @@ wait_pacman_lock() {
 pacman_install() {
   wait_pacman_lock
   [ "$#" -eq 0 ] && return 0
-  log "Installing (Root): $*"
+  log "Installing (Pacman): $*"
   pacman -S --needed --noconfirm "$@"
 }
 
@@ -108,16 +91,15 @@ install_yay_if_missing() {
   build_dir="/tmp/yay-build"
   rm -rf "$build_dir" && mkdir -p "$build_dir"
   chown -R "$TARGET_USER:$TARGET_USER" "$build_dir"
-  
   su - "$TARGET_USER" -c "cd '$build_dir' && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm"
   rm -rf "$build_dir"
 }
 
-# --- PHASE 1: HyDE Installation ---
-
+# =============================================================================
+# PHASE 1: HyDE INSTALL
+# =============================================================================
 run_phase_1() {
     log "=== PHASE 1: HyDE Installation ==="
-    log "Target User: $TARGET_USER"
     pacman_install git
 
     if [ -d "$HYDE_DIR" ]; then
@@ -162,16 +144,17 @@ EOF
 
     log "Launching HyDE Installer..."
     warn "IMPORTANT: Allow HyDE to finish, then REBOOT."
-    warn "After reboot, RUN THIS CURL COMMAND AGAIN."
-    sleep 3
+    warn "After reboot, RUN THIS SCRIPT AGAIN."
+    sleep 2
     chmod +x "$HYDE_DIR/Scripts/install.sh"
     
-    # We use 'script' to fake a TTY if needed, but the self-download fix above should handle it.
     su - "$TARGET_USER" -c "cd '$HYDE_DIR/Scripts' && ./install.sh pkg_user.lst"
     exit 0
 }
 
-# --- PHASE 2: Post-Install ---
+# =============================================================================
+# PHASE 2: POST-INSTALL
+# =============================================================================
 
 ensure_kernel_headers() {
     log "Ensuring Kernel Headers..."
@@ -187,12 +170,9 @@ ensure_g14_repo() {
   log "Setting up ASUS-Linux (g14) repo..."
   pacman_install wget gnupg
   
-  # Fix keyserver
-  if [ -f /etc/pacman.d/gnupg/gpg.conf ]; then
-     if ! grep -qi 'keyserver' /etc/pacman.d/gnupg/gpg.conf; then
-        echo "keyserver hkp://keyserver.ubuntu.com" >> /etc/pacman.d/gnupg/gpg.conf
-     fi
-  fi
+  [ -f /etc/pacman.d/gnupg/gpg.conf ] && \
+  ! grep -qi 'keyserver' /etc/pacman.d/gnupg/gpg.conf && \
+  echo "keyserver hkp://keyserver.ubuntu.com" >> /etc/pacman.d/gnupg/gpg.conf
 
   if ! pacman-key --list-keys "$G14_KEY_FPR" >/dev/null 2>&1; then
     pacman-key --recv-keys "$G14_KEY_FPR" || {
@@ -212,7 +192,6 @@ install_nvidia_beta_stack() {
   log "Installing NVIDIA Beta Drivers..."
   install_yay_if_missing
   pacman -Rns --noconfirm nvidia-dkms nvidia-utils lib32-nvidia-utils opencl-nvidia nvidia-settings 2>/dev/null || true
-  
   su - "$TARGET_USER" -c "yay -S --needed --noconfirm nvidia-beta-dkms nvidia-utils-beta opencl-nvidia-beta lib32-nvidia-utils-beta nvidia-settings-beta"
 }
 
@@ -232,26 +211,82 @@ setup_docker() {
     systemctl enable --now docker.service
 }
 
-install_fastfetch_config() {
-  log "Configuring Fastfetch..."
+# --- CONFIG FIXES ---
+
+fix_fastfetch() {
+  log "Configuring Fastfetch (Patching Image)..."
   FF_DIR="$TARGET_HOME/.config/fastfetch"
   FF_CONF="$FF_DIR/config.jsonc"
   mkdir -p "$FF_DIR"
+  
+  # Download Banner
   su - "$TARGET_USER" -c "curl -fsSL '$BANNER_URL' -o '$FF_DIR/banner.png'"
   
-  if [ ! -f "$FF_CONF" ]; then su - "$TARGET_USER" -c "fastfetch --gen-config"; fi
-  
-  if [ -f "$FF_CONF" ]; then
-      sed -i 's|"source":.*|"source": "'"$FF_DIR/banner.png"'",|' "$FF_CONF"
-      sed -i 's|"type":.*|"type": "image",|' "$FF_CONF"
+  # Generate defaults only if missing (preserves existing text/layout)
+  if [ ! -f "$FF_CONF" ]; then
+    su - "$TARGET_USER" -c "fastfetch --gen-config"
   fi
+  
+  # Surgically replace SOURCE and TYPE only
+  # 1. Update source to local image
+  sed -i 's|\"source\":.*|\"source\": \"'"$FF_DIR/banner.png"'\",|' "$FF_CONF"
+  # 2. Force type to image (replacing whatever type was there, usually "auto" or "small")
+  sed -i 's|\"type\":.*|\"type\": \"image\",|' "$FF_CONF"
+  
   chown -R "$TARGET_USER:$TARGET_USER" "$FF_DIR"
+}
+
+fix_userprefs() {
+  log "Updating Hyprland userprefs (Natural Scroll)..."
+  PREFS="$TARGET_HOME/.config/hypr/userprefs.conf"
+  
+  if [ -f "$PREFS" ]; then
+    if grep -q "natural_scroll = no" "$PREFS"; then
+        sed -i 's/natural_scroll = no/natural_scroll = yes/g' "$PREFS"
+    elif ! grep -q "natural_scroll" "$PREFS"; then
+        echo -e "\ninput {\n    touchpad {\n        natural_scroll = yes\n    }\n}\n" >> "$PREFS"
+    fi
+  else
+    cat > "$PREFS" <<EOF
+input {
+    touchpad {
+        natural_scroll = yes
+    }
+}
+EOF
+    chown "$TARGET_USER:$TARGET_USER" "$PREFS"
+  fi
+}
+
+replace_grub() {
+  log "Replacing GRUB Configuration..."
+  cat > /etc/default/grub <<EOF
+# GRUB boot loader configuration
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="CachyOS"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 nowatchdog nvme_load=YES zswap.enabled=0 nvidia_drm.modeset=1 acpi_backlight=native video.use_native_backlight=1"
+GRUB_CMDLINE_LINUX=""
+GRUB_PRELOAD_MODULES="part_gpt part_msdos"
+GRUB_TIMEOUT_STYLE=menu
+GRUB_TERMINAL_INPUT=console
+GRUB_GFXMODE=1920x1080
+GRUB_FONT=/boot/grub/fonts/unicode.pf2
+GRUB_GFXPAYLOAD_LINUX=keep
+GRUB_DISABLE_RECOVERY=true
+GRUB_BACKGROUND=/boot/grub/themes/minegrub-world-selection/dirt.png
+GRUB_THEME=/boot/grub/themes/minegrub-world-selection/theme.txt
+GRUB_SAVEDEFAULT=false
+GRUB_DISABLE_SUBMENU=false
+GRUB_DISABLE_OS_PROBER=false
+GRUB_EARLY_INITRD_LINUX_STOCK=""
+GRUB_TOP_LEVEL="/boot/vmlinuz-linux-cachyos"
+EOF
+  # Note: You said "Dont rebuild it though i will do that", so grub-mkconfig is skipped.
 }
 
 create_optimization_scripts() {
   log "Creating Optimization Scripts..."
-  
-  # Permanent Sudoers for optimization scripts
   echo "%wheel ALL=(ALL) NOPASSWD: /usr/bin/cpupower, /usr/bin/systemctl, /usr/bin/iw, /usr/bin/asusctl, /usr/bin/tee" > /etc/sudoers.d/hypr-optimization
   chmod 0440 /etc/sudoers.d/hypr-optimization
 
@@ -336,14 +371,12 @@ update_hyprland_conf() {
     sed -i '/mode-powersave.sh/d' "$CONF"
     sed -i '/mode-normal.sh/d' "$CONF"
     sed -i '/steam --silent/d' "$CONF"
-    sed -i '/polkit-gnome/d' "$CONF"
 
-    # Fix broken Hyprland config lines (gestures/anim) that might exist
+    # Fix broken Hyprland config lines (gestures/anim) that might exist from HyDE
     sed -i 's/^gestures/#gestures/g' "$CONF"
     sed -i 's/^workspace_swipe/#workspace_swipe/g' "$CONF"
 
     echo "# --- Setup Script Additions ---" >> "$CONF"
-    echo "exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1" >> "$CONF"
     echo "exec-once = steam --silent" >> "$CONF"
     echo "bind = SUPER ALT, G, exec, ~/.config/hypr/scripts/mode-gaming.sh" >> "$CONF"
     echo "bind = SUPER ALT, B, exec, ~/.config/hypr/scripts/mode-powersave.sh" >> "$CONF"
@@ -353,9 +386,7 @@ update_hyprland_conf() {
 
 run_phase_2() {
     log "=== PHASE 2: Post-Install Optimizations ==="
-    log "Target User: $TARGET_USER"
     
-    # Enable passwordless sudo for yay to work in non-interactive mode
     enable_nopasswd_sudo
     
     ensure_kernel_headers
@@ -373,7 +404,11 @@ run_phase_2() {
     install_app_replacements
     install_dev_extras
     setup_docker
-    install_fastfetch_config
+    
+    fix_fastfetch
+    fix_userprefs
+    replace_grub
+    
     create_optimization_scripts
     update_hyprland_conf
 
@@ -388,13 +423,11 @@ run_phase_2() {
     warn "Please REBOOT one last time."
 }
 
-# --- Main Execution ---
+# --- MAIN ---
 need_root
-
 if [ -d "$HYDE_DIR" ] && [ -f "$HYDE_DIR/Scripts/install.sh" ]; then
     run_phase_2
 else
-    # Enable sudo fix for Phase 1 as well just in case
     enable_nopasswd_sudo
     run_phase_1
 fi

@@ -4,20 +4,18 @@
 # AUTOMATED CACHYOS + HYDE + ASUS G14 + NVIDIA BETA SETUP
 # -----------------------------------------------------------------------------
 # RUN TWICE:
-# 1. Installs HyDE (Reboot).
+# 1. Installs HyDE + Apps (Reboot).
 # 2. Configures Nvidia, Fastfetch, GRUB, etc. (Reboot).
 # -----------------------------------------------------------------------------
 
 set -e
 
 # --- SELF-CORRECTION FOR CURL PIPES ---
-# Fixes "sudo: a terminal is required" by downloading and re-running from disk.
 if [ ! -t 0 ]; then
     echo "Pipe detected. Downloading script to /tmp/setup_fix.sh..."
     curl -fsSL "https://kmaba.link/i" -o /tmp/setup_fix.sh
     chmod +x /tmp/setup_fix.sh
     echo "Relaunching from disk..."
-    # Force input from TTY so sudo works
     exec sudo bash /tmp/setup_fix.sh < /dev/tty
     exit
 fi
@@ -109,36 +107,90 @@ run_phase_1() {
         su - "$TARGET_USER" -c "git clone --depth 1 '$HYDE_REPO' '$HYDE_DIR'"
     fi
 
+    # 1. MODIFY CORE LIST (Remove 'code')
+    CORE_LIST="$HYDE_DIR/Scripts/pkg_core.lst"
+    if [ -f "$CORE_LIST" ]; then
+        log "Modifying pkg_core.lst to disable default Code-OSS..."
+        # Finds the line "code" and turns it into "#code"
+        sed -i 's/^code/#code/' "$CORE_LIST"
+    else
+        warn "pkg_core.lst not found, skipping patch."
+    fi
+
+    # 2. GENERATE USER LIST (Combined Mega List)
     log "Generating pkg_user.lst..."
     cat > "$HYDE_DIR/Scripts/pkg_user.lst" <<EOF
-polkit
-polkit-gnome
+# --- System ---
+downgrade
+trash-cli-git
+libinput-gestures
+gestures
+wttrbar
+python-requests
+ddcui
+hyprgui-bin
 power-profiles-daemon
-asusctl
-rog-control-center
+
+# --- Shell ---
+bat
+eza
+duf
+
+# --- Misc ---
+xdg-desktop-portal-gtk
+wf-recorder
+emote
+wl-screenrec
+zbar
+
+# --- Gaming ---
 steam
-discord
-prismlauncher
+gamemode
 mangohud
 gamescope
-gamemode
+lutris
+prismlauncher
 protonup-qt
+
+# --- Music ---
+cava
+spotify
+spicetify-cli
+
+# --- Apps/Editors ---
+neovim
+vscodium
+vscodium-marketplace
+code-marketplace
+visual-studio-code-bin
+microsoft-edge-stable-bin
+
+# --- Backend/Lockscreen/OSD ---
+electron
+swaylock-effects-git
+swayosd-git
+
+# --- Extras (From previous requests) ---
+asusctl
+rog-control-center
+discord
 pavucontrol
 blueman
 nm-connection-editor
 wdisplays
-git
-base-devel
-neovim
-python
-python-pip
-nodejs
-npm
 docker
 docker-compose
-discord
 proton-vpn-gtk-app
 ntfs-3g
+tty-clock
+cmatrix
+github-cli
+
+# --- ZSH/Fish Plugins (Uncommented all) ---
+oh-my-zsh-git
+pokemon-colorscripts-git
+pokego-bin
+zsh-theme-powerlevel10k-git
 EOF
     chown "$TARGET_USER:$TARGET_USER" "$HYDE_DIR/Scripts/pkg_user.lst"
 
@@ -191,21 +243,15 @@ ensure_g14_repo() {
 install_nvidia_beta_stack() {
   log "Installing NVIDIA Beta Drivers..."
   install_yay_if_missing
+  # Clean old drivers just in case
   pacman -Rns --noconfirm nvidia-dkms nvidia-utils lib32-nvidia-utils opencl-nvidia nvidia-settings 2>/dev/null || true
+  # Install Beta
   su - "$TARGET_USER" -c "yay -S --needed --noconfirm nvidia-beta-dkms nvidia-utils-beta opencl-nvidia-beta lib32-nvidia-utils-beta nvidia-settings-beta"
-}
-
-install_app_replacements() {
-  log "Swapping Apps..."
-  install_yay_if_missing
-  pacman -Rns --noconfirm code 2>/dev/null || true
-  su - "$TARGET_USER" -c "yay -S --needed --noconfirm visual-studio-code-bin microsoft-edge-stable-bin"
-  pacman_install tty-clock cmatrix
 }
 
 setup_docker() {
     log "Configuring Docker..."
-    pacman_install docker docker-compose
+    # Docker installed in Phase 1, just fixing permissions
     if ! getent group docker >/dev/null; then groupadd docker; fi
     usermod -aG docker "$TARGET_USER"
     systemctl enable --now docker.service
@@ -219,18 +265,15 @@ fix_fastfetch() {
   FF_CONF="$FF_DIR/config.jsonc"
   mkdir -p "$FF_DIR"
   
-  # Download Banner
   su - "$TARGET_USER" -c "curl -fsSL '$BANNER_URL' -o '$FF_DIR/banner.png'"
   
-  # Generate defaults only if missing (preserves existing text/layout)
+  # Generate if missing
   if [ ! -f "$FF_CONF" ]; then
     su - "$TARGET_USER" -c "fastfetch --gen-config"
   fi
   
-  # Surgically replace SOURCE and TYPE only
-  # 1. Update source to local image
+  # Apply Image Patch
   sed -i 's|\"source\":.*|\"source\": \"'"$FF_DIR/banner.png"'\",|' "$FF_CONF"
-  # 2. Force type to image (replacing whatever type was there, usually "auto" or "small")
   sed -i 's|\"type\":.*|\"type\": \"image\",|' "$FF_CONF"
   
   chown -R "$TARGET_USER:$TARGET_USER" "$FF_DIR"
@@ -282,7 +325,6 @@ GRUB_DISABLE_OS_PROBER=false
 GRUB_EARLY_INITRD_LINUX_STOCK=""
 GRUB_TOP_LEVEL="/boot/vmlinuz-linux-cachyos"
 EOF
-  # Note: You said "Dont rebuild it though i will do that", so grub-mkconfig is skipped.
 }
 
 create_optimization_scripts() {
@@ -372,7 +414,7 @@ update_hyprland_conf() {
     sed -i '/mode-normal.sh/d' "$CONF"
     sed -i '/steam --silent/d' "$CONF"
 
-    # Fix broken Hyprland config lines (gestures/anim) that might exist from HyDE
+    # Fix broken Hyprland config lines (gestures/anim)
     sed -i 's/^gestures/#gestures/g' "$CONF"
     sed -i 's/^workspace_swipe/#workspace_swipe/g' "$CONF"
 
@@ -401,8 +443,7 @@ run_phase_2() {
         systemctl enable "$svc" 2>/dev/null || true
     done
 
-    install_app_replacements
-    install_dev_extras
+    # Apps are now installed in Phase 1, but we still config Docker here
     setup_docker
     
     fix_fastfetch
